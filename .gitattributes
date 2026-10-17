@@ -1,0 +1,9 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.init text eol=lf
+*.hotplug text eol=lf
+Makefile text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.py text eol=lf
+*.cmake text eol=lf

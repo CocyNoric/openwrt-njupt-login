@@ -1,0 +1,56 @@
+# Build output and downloaded dependencies
+/build*/
+/cmake-build-*/
+/out/
+/.deps/
+/dist/
+/CMakeFiles/
+/CMakeCache.txt
+/Testing/
+/cmake_install.cmake
+/install_manifest.txt
+/compile_commands.json
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.ipk
+*.apk
+
+# Local credentials and device-specific notes; keep example configs tracked
+/local.conf
+/client.conf
+*.local.conf
+.env
+.env.*
+!.env.example
+!.env.sample
+/docs/local/
+*.log
+*.pid
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Editor and operating-system files
+/.vscode/
+/.idea/
+.vs/
+*.user
+*.suo
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

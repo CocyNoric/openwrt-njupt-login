@@ -1,0 +1,5 @@
+#!/bin/sh
+case "$ACTION" in ifup|ifupdate|ifdown) ;; *) exit 0;; esac
+network=$(uci -q get njupt-login.main.network)
+[ "$INTERFACE" = "${network:-wan}" ] || exit 0
+/etc/init.d/njupt-login restart
