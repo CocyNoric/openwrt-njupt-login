@@ -28,7 +28,7 @@ config login 'main'
     option username 'YOUR_USERNAME'
     option password 'YOUR_PASSWORD'
     option portal_ip '10.10.244.11'
-    option interval '60'
+    option interval '15'
     option failure_threshold '3'
 ```
 
@@ -47,11 +47,18 @@ logread -e njupt-login
 ## 联网探测与重试
 
 - 启动时先检查联网状态，已经在线则跳过登录。
-- 默认每 60 秒探测，曾经在线后连续 3 次失败才重新认证；登录完成后再次检查联网。
+- 默认每 15 秒探测，曾经在线后连续 3 轮失败才重新认证；登录完成后再次检查联网。
 - 认证失败按 10、20、40 秒递增退避，最长 300 秒；门户明确提示费用超支时默认等待 900 秒。
 - WAN 不可用时等待链路，WAN 地址变化时重新获取设备与地址。
 
-默认探测为 `http://archive.ubuntu.com/ubuntu/`，固定 IPv4 为 `91.189.92.22`，要求 HTTP 200 且正文含 `Index of /ubuntu`。这个地址需要维护：请确认探测点登录后可达、未登录时不可达，避免误判在线。自定义域名探测需同步设置 `probe_url`、真实的 `probe_ip`、`probe_status` 和 `probe_body`；可增加 `probe2_*` 备用端点，任一端点成功即视为在线。
+默认按以下顺序探测，首个成功即视为在线；只有两个端点都失败才计为一轮失败：
+
+1. **阿里 DNS `223.5.5.5`（优先）**：请求 `https://223.5.5.5/resolve?name=bilibili.com&type=A`，要求 HTTP 200 且正文含 `"Status":0`。
+2. **B 站（备用）**：请求 `https://www.bilibili.com/robots.txt`，固定 IPv4 为 `223.111.249.190`，要求 HTTP 200 且正文含 `Disallow: /medialist/detail/`。`bilibili.com` 裸域名会跳转，因此直接使用 `www.bilibili.com`。
+
+两个探测均使用 HTTPS 并校验证书。正常情况下每分钟约 4 次轻量请求，15 秒间隔通常负担很小；实际周期还包括请求和网络规则检查耗时。B 站固定 IPv4 已于 2026-10-17 验证，后续可能需要维护。请在目标校园网确认探测点登录后可达、未登录时不可达，尤其注意 DNS 服务可能在未认证时放行，避免误判在线。
+
+自定义域名探测需同步设置 `probe_url`、真实的 `probe_ip`、`probe_status` 和 `probe_body`；设置自定义 `probe_url` 后，备用端点由 `probe2_*` 显式配置，不会自动添加默认 B 站端点。
 
 这里的保活是联网探测与掉线重认证。长期在线和不同校园认证部署的兼容性需在目标网络验证；认证门户沿用 HTTP 协议，密码会按该协议在校园链路上传输。
 
@@ -70,7 +77,7 @@ logread -e njupt-login
 ```sh
 ip -4 -N rule show
 ip -4 route show table 20260
-ip -4 route get 91.189.92.22 from YOUR_WAN_IP mark 0x4e4a
+ip -4 route get 223.5.5.5 from YOUR_WAN_IP mark 0x4e4a
 ```
 
 校园设备的直连规则、LAN 到 WAN 的转发和 NAT 由现有网络配置管理。

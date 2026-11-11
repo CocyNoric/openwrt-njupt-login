@@ -44,9 +44,21 @@ int main() {
         require(njupt::rejection_code("msga='AC999extra';").empty(), "do not log arbitrary suffix");
         require(njupt::rejection_code("msga='ACabc';").empty(), "code requires digits");
         require(njupt::rejection_code("msga='personal account text';").empty(), "do not log portal text");
-        require(c.probes.front().url == "http://archive.ubuntu.com/ubuntu/" &&
-            c.probes.front().ip == "91.189.92.22", "default uses the verified pinned Ubuntu probe");
+        require(c.interval == 15, "default heartbeat interval is 15 seconds");
+        require(c.probes.size() == 2 &&
+            c.probes.front().url == "https://223.5.5.5/resolve?name=bilibili.com&type=A" &&
+            c.probes.front().ip == "223.5.5.5", "AliDNS is the first default probe");
+        require(c.probes[1].url == "https://www.bilibili.com/robots.txt" &&
+            c.probes[1].ip == "223.111.249.190", "Bilibili is the pinned default fallback");
+        require(njupt::probe_matches(c.probes[0], 200, "{\"Status\":0,\"Answer\":[]}"), "AliDNS success marker");
+        require(!njupt::probe_matches(c.probes[0], 200, "{\"Status\":2}"), "AliDNS error is offline");
+        require(njupt::probe_matches(c.probes[1], 200, "User-agent: *\nDisallow: /medialist/detail/\n"), "Bilibili success marker");
+        require(!njupt::probe_matches(c.probes[1], 200, "portal login page"), "Bilibili needs its expected body");
         require(parse("probe_url=http://127.0.0.1/probe\n").probes.front().ip.empty(), "URL overrides do not inherit default pin");
+        require(parse("probe_url=http://127.0.0.1/probe\n").probes.size() == 1, "custom primary does not inherit a public fallback");
+        require(parse("probe2_url=\n").probes.size() == 1, "empty backup URL disables the default fallback");
+        const auto backup = parse("probe2_url=http://127.0.0.1/fallback\n").probes[1];
+        require(backup.ip.empty() && backup.body.empty() && backup.status == 204, "custom backup does not inherit default endpoint settings");
         njupt::Probe p{"http://127.0.0.1/", "", 204, ""};
         require(njupt::probe_matches(p, 204, ""), "204 probe");
         require(!njupt::probe_matches(p, 200, ""), "HTTP success is insufficient");
@@ -69,7 +81,8 @@ int main() {
         require(state.authenticated(false).delay == 20, "retry doubles");
         for (int i = 0; i < 8; ++i) d = state.authenticated(false);
         require(d.delay == 300, "retry is capped");
-        require(state.authenticated(true).state == njupt::State::online, "post-login confirmed");
+        d = state.authenticated(true);
+        require(d.state == njupt::State::online && d.delay == 15, "post-login confirmed with 15-second heartbeat");
         require(!state.observed(true, false).login, "one failed heartbeat tolerated");
         require(!state.observed(true, false).login, "two failed heartbeats tolerated");
         require(state.observed(true, false).login, "threshold triggers reauth");

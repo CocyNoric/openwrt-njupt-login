@@ -75,15 +75,19 @@ Config read_config(std::istream& in) {
     num("connect_timeout", c.connect_timeout, 1, 300);
     unsigned mark = c.mark;
     num("mark", mark, 0, std::numeric_limits<std::uint32_t>::max()); c.mark = mark;
-    Probe p{"http://archive.ubuntu.com/ubuntu/", "91.189.92.22", 200, "Index of /ubuntu"};
+    const bool custom_probe = m.count("probe_url") != 0;
+    Probe p{"https://223.5.5.5/resolve?name=bilibili.com&type=A", "223.5.5.5", 200, "\"Status\":0"};
     // A URL override must not inherit the default endpoint's pinned address.
-    if (m.count("probe_url")) p.ip.clear();
+    if (custom_probe) p.ip.clear();
     str("probe_url", p.url); str("probe_ip", p.ip); str("probe_body", p.body);
     unsigned code = 200; num("probe_status", code, 200, 299); p.status = code;
     c.probes.push_back(p);
-    Probe p2;
+    Probe p2{"", "", 204, ""};
+    // Preserve a custom primary's single-endpoint behavior unless a backup is configured.
+    if (!custom_probe && !m.count("probe2_url"))
+        p2 = {"https://www.bilibili.com/robots.txt", "223.111.249.190", 200, "Disallow: /medialist/detail/"};
     str("probe2_url", p2.url); str("probe2_ip", p2.ip); str("probe2_body", p2.body);
-    code = 204; num("probe2_status", code, 200, 299); p2.status = code;
+    code = static_cast<unsigned>(p2.status); num("probe2_status", code, 200, 299); p2.status = code;
     if (!p2.url.empty()) c.probes.push_back(p2);
     else if (!p2.ip.empty() || !p2.body.empty()) throw std::runtime_error("probe2_url required");
     if (!m.empty()) throw std::runtime_error("unknown config key: " + m.begin()->first);

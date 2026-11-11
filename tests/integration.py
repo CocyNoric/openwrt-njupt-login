@@ -128,8 +128,10 @@ class Integration(unittest.TestCase):
 
     def test_online_skips_login(self):
         self.state["online"] = True
-        self.assertEqual(self.run_client().returncode, 0)
+        extra = f"probe2_url=http://127.0.0.1:{self.port}/fallback\nprobe2_status=204\n"
+        self.assertEqual(self.run_client(extra).returncode, 0)
         self.assertFalse(self.state["posts"])
+        self.assertEqual(self.state["gets"], ["/probe"])
 
     def test_check_never_authenticates(self):
         self.assertEqual(self.run_client(mode="--check").returncode, 1)
@@ -175,6 +177,7 @@ class Integration(unittest.TestCase):
         extra = f"probe2_url=http://127.0.0.1:{self.port}/fallback\nprobe2_status=204\n"
         self.assertEqual(self.run_client(extra).returncode, 0)
         self.assertFalse(self.state["posts"])
+        self.assertEqual(self.state["gets"], ["/probe", "/fallback"])
 
     def test_fixed_resolution_bypasses_fake_dns(self):
         extra = f"probe2_url=http://does-not-exist.invalid:{self.port}/fallback\nprobe2_ip=127.0.0.1\n"

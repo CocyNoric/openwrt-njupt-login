@@ -19,7 +19,7 @@ struct Config {
     std::string page_path = "/a79.htm";
     std::string device, client_ip;
     std::uint32_t mark = 0x4e4a;
-    unsigned interval = 60, failure_threshold = 3;
+    unsigned interval = 15, failure_threshold = 3;
     unsigned retry_initial = 10, retry_max = 300, settle = 2;
     unsigned rejected_retry = 900;
     unsigned timeout = 10, connect_timeout = 5;
