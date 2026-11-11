@@ -1,5 +1,6 @@
 #include "core.hpp"
 #include <cctype>
+#include <regex>
 #include <stdexcept>
 
 namespace njupt {
@@ -44,10 +45,23 @@ std::string login_url(const Config& c, const std::string& mac) {
 std::string login_body(const Config& c) {
     return "DDDDD=" + encode(c.username) + "&upass=" + encode(c.password);
 }
+std::string eportal_login_url(const Config& c) {
+    // The current portal's browser client uses JSONP GET, a PC account prefix,
+    // and a zero MAC to let the server identify the client from its WAN IPv4.
+    // POST to this endpoint is not supported. Never log this credential-bearing URL.
+    return "http://" + c.portal_ip + ":" + std::to_string(c.login_port) +
+        "/eportal/portal/login?callback=dr1003&login_method=1&user_account=" +
+        encode(",0," + c.username) + "&user_password=" + encode(c.password) +
+        "&wlan_user_ip=" + encode(c.client_ip) +
+        "&wlan_user_ipv6=&wlan_user_mac=000000000000&wlan_ac_ip=&wlan_ac_name="
+        "&terminal_type=1&lang=zh-cn&jsVersion=4.1.3";
+}
 bool login_ack(const std::string& body) {
     // The supplied protocol uses an ASCII success marker inside a GBK page.
     // No full GBK conversion is needed; the actual success is verified by WAN probes.
-    return body.find("Login succeed") != std::string::npos;
+    if (body.find("Login succeed") != std::string::npos) return true;
+    static const std::regex ack(R"ack(^\s*dr1003\(\s*\{\s*"result"\s*:\s*(1|"1"|"ok")\s*[,}])ack");
+    return std::regex_search(body, ack);
 }
 bool billing_rejected(const std::string& body) {
     // Observed portal response: Msg=01; msga='本账号费用超支，禁止使用'.

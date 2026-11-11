@@ -139,7 +139,17 @@ LoginResult Http::login() {
     try { mac = portal_mac(page.body); }
     catch (const std::exception&) { std::cerr << "portal MAC not found\n"; return LoginResult::unconfirmed; }
     const auto body = login_body(c_);
-    const auto r = request(login_url(c_, mac), &body);
+    auto r = request(login_url(c_, mac), &body);
+    // After the portal migration the legacy URL serves the EPortal SPA with
+    // HTTP 200 instead of an authentication response. Only that known response
+    // triggers a retry through the current API; ordinary rejections do not.
+    if (!stopping && r.code == CURLE_OK && r.bound && r.status == 200 &&
+        r.body.find("<title>EPortal</title>") != std::string::npos &&
+        (r.body.find("<div id=app>") != std::string::npos ||
+         r.body.find("<div id=\"app\">") != std::string::npos)) {
+        std::cerr << "legacy login returned EPortal app; using current portal API\n";
+        r = request(eportal_login_url(c_));
+    }
     if (r.code != CURLE_OK || !r.bound || r.status != 200) {
         std::cerr << "authentication request failed: curl=" << static_cast<int>(r.code) << " http=" << r.status << '\n';
         return LoginResult::unconfirmed;

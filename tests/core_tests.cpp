@@ -36,6 +36,10 @@ int main() {
         require(url.find("R6=0") != std::string::npos, "sample protocol fields");
         require(njupt::login_ack("\x81\x82 Login succeed"), "ASCII inside GBK");
         require(!njupt::login_ack("Login failed"), "negative ACK");
+        require(njupt::login_ack("dr1003({\"result\":1,\"msg\":\"success\"});"), "current JSONP ACK");
+        require(njupt::login_ack("dr1003( { \"result\" : \"ok\" });"), "JSONP string ACK");
+        require(!njupt::login_ack("dr1003({\"result\":10});"), "JSONP result is exact");
+        require(!njupt::login_ack("dr1003({\"result\":0,\"msg\":\"denied\"});"), "JSONP rejection");
         require(njupt::billing_rejected(u8"msga='本账号费用超支，禁止使用'"), "UTF-8 billing rejection");
         require(njupt::billing_rejected("msga='\xb1\xbe\xd5\xcb\xba\xc5\xb7\xd1\xd3\xc3\xb3\xac\xd6\xa7'"), "GBK billing rejection");
         require(!njupt::billing_rejected("Msg=01; Login fail"), "generic rejection is not a billing failure");

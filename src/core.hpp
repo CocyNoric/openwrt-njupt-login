@@ -32,6 +32,7 @@ std::string encode(const std::string& bytes);
 std::string portal_mac(const std::string& html);
 std::string login_url(const Config& c, const std::string& mac);
 std::string login_body(const Config& c);
+std::string eportal_login_url(const Config& c);
 bool login_ack(const std::string& body);
 bool billing_rejected(const std::string& body);
 std::string rejection_code(const std::string& body);

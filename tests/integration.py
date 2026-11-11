@@ -33,7 +33,18 @@ class Portal(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         state = self.server.state
         state["gets"].append(self.path)
-        if self.path == "/a79.htm":
+        if urllib.parse.urlsplit(self.path).path == "/eportal/portal/login":
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query, keep_blank_values=True)
+            state["api_queries"].append(query)
+            if state.get("api_redirect"):
+                self.reply(302, Location="/stolen")
+            elif state.get("api_reject"):
+                self.reply(200, b'dr1003({"result":0,"msg":"denied","ret_code":"1"});')
+            else:
+                if not state.get("false_success"):
+                    state["online"] = True
+                self.reply(200, b'dr1003({"result":1,"msg":"success"});')
+        elif self.path == "/a79.htm":
             if state.get("redirect_page"):
                 self.reply(302, Location="/stolen")
             elif state.get("bad_mac"):
@@ -62,6 +73,8 @@ class Portal(http.server.BaseHTTPRequestHandler):
         state["posts"].append((query, form, self.client_address[0], self.headers.get("Content-Type")))
         if state.get("redirect_login"):
             self.reply(307, Location="/stolen")
+        elif state.get("migrated_portal"):
+            self.reply(200, b'<!DOCTYPE html><title>EPortal</title><div id=app></div>')
         elif state.get("billing_reject"):
             self.reply(200, "<script>Msg=01;msga='本账号费用超支，禁止使用';</script>Login fail".encode("gbk"))
         elif state.get("code_reject"):
@@ -76,7 +89,7 @@ class Portal(http.server.BaseHTTPRequestHandler):
 
 class Integration(unittest.TestCase):
     def setUp(self):
-        self.state = {"online": False, "posts": [], "gets": []}
+        self.state = {"online": False, "posts": [], "gets": [], "api_queries": []}
         self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Portal)
         self.server.daemon_threads = True
         self.server.state = self.state
@@ -132,6 +145,38 @@ class Integration(unittest.TestCase):
         self.assertEqual(self.run_client(extra).returncode, 0)
         self.assertFalse(self.state["posts"])
         self.assertEqual(self.state["gets"], ["/probe"])
+
+    def test_migrated_portal_uses_current_jsonp_api(self):
+        self.state["migrated_portal"] = True
+        result = self.run_client()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("portal acknowledged login", result.stderr)
+        self.assertEqual(len(self.state["posts"]), 1)
+        self.assertEqual(self.state["api_queries"], [{
+            "callback": ["dr1003"], "login_method": ["1"],
+            "user_account": [",0," + USER], "user_password": [PASSWORD],
+            "wlan_user_ip": ["127.0.0.1"], "wlan_user_ipv6": [""],
+            "wlan_user_mac": ["000000000000"], "wlan_ac_ip": [""], "wlan_ac_name": [""],
+            "terminal_type": ["1"], "lang": ["zh-cn"], "jsVersion": ["4.1.3"],
+        }])
+
+    def test_current_api_ack_still_requires_connectivity(self):
+        self.state.update(migrated_portal=True, false_success=True)
+        result = self.run_client()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("portal acknowledged login", result.stderr)
+        self.assertIn("state=backoff", result.stderr)
+
+    def test_current_api_rejection_does_not_report_success(self):
+        self.state.update(migrated_portal=True, api_reject=True)
+        result = self.run_client()
+        self.assertEqual(result.returncode, 1)
+        self.assertNotIn("portal acknowledged login", result.stderr)
+
+    def test_current_api_redirect_not_followed(self):
+        self.state.update(migrated_portal=True, api_redirect=True)
+        self.assertEqual(self.run_client().returncode, 1)
+        self.assertNotIn("/stolen", self.state["gets"])
 
     def test_check_never_authenticates(self):
         self.assertEqual(self.run_client(mode="--check").returncode, 1)
@@ -190,6 +235,7 @@ class Integration(unittest.TestCase):
     def test_credential_rejection(self):
         self.state["reject"] = True
         self.assertEqual(self.run_client().returncode, 1)
+        self.assertFalse(self.state["api_queries"])
 
     def test_billing_rejection_is_identified_and_throttled(self):
         self.state["billing_reject"] = True

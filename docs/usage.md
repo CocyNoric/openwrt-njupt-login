@@ -62,6 +62,8 @@ logread -e njupt-login
 
 这里的保活是联网探测与掉线重认证。长期在线和不同校园认证部署的兼容性需在目标网络验证；认证门户沿用 HTTP 协议，密码会按该协议在校园链路上传输。
 
+客户端兼容旧版登录接口和新版 EPortal 门户：旧接口返回 EPortal 应用页面时，自动改用 `/eportal/portal/login` JSONP 接口，并继续通过外网探测确认联网。新版接口要求 GET，请求包含账号和密码，因此不要记录或分享完整认证 URL。
+
 ## OpenClash 与出口
 
 客户端绑定校园 WAN 的设备和 IPv4，以标记 `0x4e4a` 匹配专用策略路由及 OpenClash 输出链的 RETURN 规则。每个周期会检查并恢复规则；OpenClash 不同版本和运行模式需要在设备上验证。
