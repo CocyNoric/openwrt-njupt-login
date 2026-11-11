@@ -34,7 +34,11 @@ Run-CMake -S $curlSource -B "$deps/curl-arm-build" @common @pyOption `
     -DCURL_DISABLE_FTP=ON -DCURL_DISABLE_FILE=ON -DCURL_DISABLE_DICT=ON -DCURL_DISABLE_TELNET=ON `
     -DCURL_DISABLE_TFTP=ON -DCURL_DISABLE_POP3=ON -DCURL_DISABLE_IMAP=ON -DCURL_DISABLE_SMTP=ON `
     -DCURL_DISABLE_RTSP=ON -DCURL_DISABLE_GOPHER=ON -DCURL_DISABLE_MQTT=ON `
-    -DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt -DCURL_CA_PATH=none
+    '-DCURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt' '-DCURL_CA_PATH=none'
+if (-not (Select-String -LiteralPath "$deps/curl-arm-build/lib/curl_config.h" `
+    -SimpleMatch '#define CURL_CA_BUNDLE "/etc/ssl/certs/ca-certificates.crt"' -Quiet)) {
+    throw 'Incorrect libcurl CA bundle path; refusing to build a router binary with broken HTTPS verification'
+}
 Run-CMake --build "$deps/curl-arm-build" --parallel 4
 Run-CMake --install "$deps/curl-arm-build" --prefix "$deps/arm-libs"
 Run-CMake -S $root -B "$root/build-aarch64" @common `
